@@ -1,0 +1,423 @@
+*&---------------------------------------------------------------------*
+*& Report ZETH_INT_DEMO
+*&---------------------------------------------------------------------*
+* Note: SystemId for buy orders is taken from the report title.
+
+report zeth_int_demo.
+
+tables: sscrfields.
+
+types: begin of t_display,
+         system_id            type string,
+         raw_material         type string,
+         kilos                type string,
+         usd_per_kilo         type string,
+         status               type string,
+         seller_contact_email type string,
+       end of t_display.
+
+types: begin of t_create,
+         system_id    type string,
+         raw_material type string,
+         kilos        type i,
+         usd_per_kilo type i,
+       end of t_create.
+
+*-----------------------------------------------------------------------------
+* Selection Screen
+*-----------------------------------------------------------------------------
+* Define tabstrip
+selection-screen begin of tabbed block tabstrip for 20 lines.
+* First tab (text length) (var auto defined to hold text)
+*                         (sy-ucomm usercommand)
+*                         (default screen) (optional default program)
+selection-screen tab (26) tabs1
+                          user-command tab1
+                          default screen 901.
+selection-screen tab (18) tabs2
+                          user-command tab2
+                          default screen 902.
+selection-screen end of block tabstrip.
+
+
+*-----------------------------------------------------------------------------
+* Screen 901: Display Buy Offers (Events)
+*-----------------------------------------------------------------------------
+selection-screen begin of screen 901 as subscreen.
+
+selection-screen begin of line.
+selection-screen: comment 2(28) std01.
+selection-screen position 35.
+parameters: px_sys type string.
+selection-screen end of line.
+
+selection-screen begin of line.
+selection-screen: comment 2(28) std02.
+selection-screen position 35.
+parameters: p_allids type c as checkbox.
+selection-screen end of line.
+
+selection-screen begin of block block2 with frame.
+selection-screen begin of line.
+selection-screen pushbutton (20) b_disp user-command disp.
+selection-screen end of line.
+
+parameters:
+  px_5ev01 type string,
+  px_5ev02 type string,
+  px_5ev03 type string,
+  px_5ev04 type string,
+  px_5ev05 type string,
+  px_5ev06 type string,
+  px_5ev07 type string,
+  px_5ev08 type string,
+  px_5ev09 type string,
+  px_5ev10 type string,
+  px_5ev11 type string,
+  px_5ev12 type string.
+
+selection-screen end of block block2.
+selection-screen end of screen 901.
+
+*-----------------------------------------------------------------------------
+* Screen 902: Create
+*-----------------------------------------------------------------------------
+selection-screen begin of screen 902 as subscreen.
+
+selection-screen begin of block block3 with frame.
+selection-screen begin of line.
+selection-screen pushbutton (20) b_crea user-command crea.
+selection-screen end of line.
+selection-screen skip.
+
+selection-screen begin of line.
+selection-screen: comment 2(28) trawmt.
+selection-screen position 35.
+parameters: p_rawmt type ccmsbiscid default 'Cobalt'.
+selection-screen end of line.
+
+selection-screen begin of line.
+selection-screen: comment 2(28) tkilos.
+selection-screen position 35.
+parameters: p_kilos type  i default 1000.
+selection-screen end of line.
+
+selection-screen begin of line.
+selection-screen: comment 2(28) tusdpk.
+selection-screen position 35.
+parameters: p_usdpk type  i default 30.
+selection-screen end of line.
+
+selection-screen end of block block3.
+selection-screen end of screen 902.
+
+*-----------------------------------------------------------------------------
+* Initialisation
+*-----------------------------------------------------------------------------
+initialization.
+* Tab texts
+  tabs1 = 'Display Offers'.
+  tabs2 = 'Create Buy Offer'.
+
+* Seln texts
+  px_sys = sy-title.
+  std01 = 'System Id'.
+  std02 = 'Show All System Ids'.
+  trawmt = 'Raw Material'.
+  tkilos = 'Kilos'.
+  tusdpk = 'USD per Kilo'.
+
+* Button texts
+  b_disp = 'Display Offers'.
+  b_crea = 'Create Buy Offer'.
+
+*-----------------------------------------------------------------------------
+* At selection-screen output
+*-----------------------------------------------------------------------------
+at selection-screen output.
+  loop at screen.
+*   Some fields marked with X are never ready for input
+    if screen-name cs 'PX_'.
+      screen-input = 0.
+      modify screen.
+    endif.
+  endloop.
+
+*-----------------------------------------------------------------------------
+* At selection-screen
+*-----------------------------------------------------------------------------
+at selection-screen.
+
+  if sscrfields-ucomm eq 'DISP' and sy-dynnr = 901.
+*   Display offers
+    perform clear_offer_data.
+    perform get_offer_data.
+
+  elseif sscrfields-ucomm eq 'CREA' and sy-dynnr = 902.
+*   Create buy offer
+    perform create_offer.
+
+  endif.
+
+*-----------------------------------------------------------------------------
+* Start-of-Selection
+*-----------------------------------------------------------------------------
+start-of-selection.
+* Do nothing
+  return.
+
+*&---------------------------------------------------------------------*
+*& Form CREATE_OFFER
+*&---------------------------------------------------------------------*
+form create_offer.
+
+  data: lo_http_client type ref to if_http_client,
+        lv_service     type string,
+        lv_body        type string.
+  data: lv_err_string type string,
+        lv_ret_code   type sy-subrc,
+        s type string.
+
+* Prepare data
+  data: offer_to_create type t_create.
+  offer_to_create-system_id = sy-title+0(32).
+  offer_to_create-raw_material = p_rawmt+0(32).
+  offer_to_create-kilos = p_kilos.
+  offer_to_create-usd_per_kilo = p_usdpk.
+
+* Prepare request
+  lv_service = `http://sapethapiver01.azurewebsites.net/api/market`.
+  cl_http_client=>create_by_url(
+       exporting
+         url                = lv_service
+       importing
+         client             = lo_http_client
+       exceptions
+         argument_not_found = 1
+         plugin_not_active  = 2
+         internal_error     = 3
+         others             = 4 ).
+  if sy-subrc <> 0.
+    s = 'Error preparing request'.
+    message e000(rsrmon) with s.
+    return.
+  endif.
+  lo_http_client->propertytype_logon_popup = lo_http_client->co_disabled.
+
+  call method lo_http_client->request->set_header_field
+    exporting
+      name  = '~request_method'
+      value = 'POST'.
+
+* Call the following method to autheticate the user/password and client for the remote connection.
+* CALL METHOD LO_HTTP_CLIENT->AUTHENTICATE()
+
+* Serialise JSON data
+  lv_body = /ui2/cl_json=>serialize( pretty_name = /ui2/cl_json=>pretty_mode-camel_case
+                                     data = offer_to_create ).
+* Converted JSON should look like this
+* lv_body = '{"systemId":"SolyentSystems","rawMaterial":"Cobalt","kilos":1000,"usdPerKilo":30}'.
+
+* Pass JSON to request body
+  call method lo_http_client->request->set_content_type
+    exporting
+      content_type = if_rest_media_type=>gc_appl_json.
+
+  call method lo_http_client->request->set_cdata
+    exporting
+      data = lv_body.                 " Character data
+
+* Send request
+  lo_http_client->send(
+    exceptions
+      http_communication_failure = 1
+      http_invalid_state         = 2 ).
+  if sy-subrc <> 0.
+    s = 'Error sending request'.
+    message e000(rsrmon) with s.
+    return.
+  endif.
+
+* Receive response
+  lo_http_client->receive(
+     exceptions
+       http_communication_failure = 1
+       http_invalid_state         = 2
+       http_processing_failed     = 3 ).
+  if sy-subrc <> 0.
+     s = 'Error with http response rc: ' && sy-subrc.
+    message e000(rsrmon) with s.
+    return.
+  endif.
+
+**   For debugging
+*  data: response_body type string.
+*  response_body = lo_http_client->response->get_cdata( ).
+
+* Check response status
+  lo_http_client->response->get_status(
+    importing
+      code   = lv_ret_code
+      reason = lv_err_string ).
+* Expect only 201 (created)
+  if lv_ret_code = 201. "created ok
+    s = 'Buy offer created'.
+    message s000(rsrmon) with s.
+    return.
+  else.
+    s = 'Buy offer not created retcode ' && lv_ret_code.
+    message e000(rsrmon) with s.
+    return.
+  endif.
+
+endform.
+
+*&---------------------------------------------------------------------*
+*& Form GET_OFFER_DATA
+*&---------------------------------------------------------------------*
+form get_offer_data .
+
+  data: lo_http_client type ref to if_http_client,
+        lv_service     type string,
+        lv_err_string  type string,
+        lv_ret_code    type sy-subrc,
+        s type string.
+
+* Prepare request
+  if p_allids = space.
+*   Filter to just our systemId
+    lv_service = `http://sapethapiver01.azurewebsites.net/api/market?systemId=` && sy-title.
+  else.
+*   Show all systemIds
+    lv_service = `http://sapethapiver01.azurewebsites.net/api/market`.
+  endif.
+
+  cl_http_client=>create_by_url(
+       exporting
+         url                = lv_service
+       importing
+         client             = lo_http_client
+       exceptions
+         argument_not_found = 1
+         plugin_not_active  = 2
+         internal_error     = 3
+         others             = 4 ).
+  if sy-subrc <> 0.
+    raise http_prep_error.
+  endif.
+  lo_http_client->propertytype_logon_popup = lo_http_client->co_disabled.
+*   Call the following method to autheticate the user/password and client for the remote connection.
+*   CALL METHOD LO_HTTP_CLIENT->AUTHENTICATE()
+
+* Send request
+  lo_http_client->send(
+    exceptions
+      http_communication_failure = 1
+      http_invalid_state         = 2 ).
+  if sy-subrc <> 0.
+    px_5ev01 = 'Error http_prep_error at send request'.
+    return.
+*   raise http_prep_error.
+  endif.
+
+* Receive response
+  lo_http_client->receive(
+     exceptions
+       http_communication_failure = 1
+       http_invalid_state         = 2
+       http_processing_failed     = 3 ).
+  if sy-subrc <> 0.
+    px_5ev01 = 'Error http_prep_error at receive response'.
+    return.
+*    raise http_prep_error.
+  endif.
+
+* Check response status
+  lo_http_client->response->get_status(
+    importing
+      code   = lv_ret_code
+      reason = lv_err_string ).
+* Expect only 404 (not found) or 200 (found)
+  if lv_ret_code = 404.
+    px_5ev01 = 'Value not found'.
+    return.
+  elseif lv_ret_code <> 200.
+    px_5ev01 = 'Error at check response'.
+    return.
+  endif.
+
+* Read result
+  data(lv_result) = lo_http_client->response->get_cdata( ).
+  data: lt_pos type table of t_display.
+  data: ls_pos like line of lt_pos.
+  data ls_formatted_offer type string.
+
+* concatenate `[` lv_result `]` into lv_result. "we deserialise expecting an array, even though we know it is a single record
+  /ui2/cl_json=>deserialize(
+      exporting json = lv_result
+                pretty_name = /ui2/cl_json=>pretty_mode-camel_case
+      changing  data = lt_pos ).
+
+* Should really rewrite screens ALV or even better a proper dynpro
+  define store_event_row.
+    if l_lines >= &1.
+    read table lt_pos index &1 into ls_pos.
+    perform format_offer using ls_pos changing ls_formatted_offer.
+    px_5ev&1 = ls_formatted_offer.
+    endif.
+  end-of-definition.
+
+  data: l_lines type i.
+  l_lines = lines( lt_pos ).
+  if l_lines = 0.
+    px_5ev01 = 'No offers created yet'.
+  else.
+    store_event_row: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12.
+    s = 'Data refreshed'.
+    message s000(rsrmon) with s.
+  endif.
+
+endform.
+
+*&---------------------------------------------------------------------*
+*& Form FORMAT_OFFER
+*&---------------------------------------------------------------------*
+form format_offer using    p_offer type t_display
+changing p_formatted_offer type string.
+
+  concatenate p_offer-system_id
+  `|`
+  p_offer-raw_material
+  `|`
+  p_offer-kilos
+  `|`
+  p_offer-usd_per_kilo
+  `|`
+  p_offer-status
+  `|`
+  p_offer-seller_contact_email
+  into p_formatted_offer
+  separated by space.
+
+endform.
+
+*&---------------------------------------------------------------------*
+*& Form CLEAR_OFFER_DATA
+*&---------------------------------------------------------------------*
+form clear_offer_data .
+
+  clear:
+  px_5ev01,
+  px_5ev02,
+  px_5ev03,
+  px_5ev04,
+  px_5ev05,
+  px_5ev06,
+  px_5ev07,
+  px_5ev08,
+  px_5ev09,
+  px_5ev10,
+  px_5ev11,
+  px_5ev12.
+
+endform.

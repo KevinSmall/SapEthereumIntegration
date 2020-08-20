@@ -1,2 +1,2 @@
 # SapEthereumIntegration
-Demo of SAP Ethereum integration
+Demo of SAP ABAP integration with Ethereum Mainnet

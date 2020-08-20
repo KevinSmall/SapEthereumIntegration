@@ -1,0 +1,177 @@
+{
+	"info": {
+		"_postman_id": "9469de9d-c28e-47b5-ad02-10e0d5f5981e",
+		"name": "SAP Ethereum Integration API",
+		"description": "SAP Ethereum Integration API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create buy offer market entry",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "e1aee20e-6655-4174-83db-feac7a010210",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					},
+					{
+						"key": "",
+						"type": "text",
+						"value": "",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"SystemId\": \"Postman\",\n    \"RawMaterial\": \"Cobalt\",\n    \"Kilos\": 1234,\n    \"UsdPerKilo\": 31\n}"
+				},
+				"url": {
+					"raw": "https://localhost:44340/api/market",
+					"protocol": "https",
+					"host": [
+						"localhost"
+					],
+					"port": "44340",
+					"path": [
+						"api",
+						"market"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List all current market entries",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://localhost:44340/api/market",
+					"protocol": "https",
+					"host": [
+						"localhost"
+					],
+					"port": "44340",
+					"path": [
+						"api",
+						"market"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List all current market entries with systemId filter",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://localhost:44340/api/market?systemId=KevinTest",
+					"protocol": "https",
+					"host": [
+						"localhost"
+					],
+					"port": "44340",
+					"path": [
+						"api",
+						"market"
+					],
+					"query": [
+						{
+							"key": "systemId",
+							"value": "KevinTest"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[Azure] Create buy offer market entry",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "e1aee20e-6655-4174-83db-feac7a010210",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					},
+					{
+						"key": "",
+						"type": "text",
+						"value": "",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"SystemId\": \"Postman\",\n    \"RawMaterial\": \"Cobalt\",\n    \"Kilos\": 1334,\n    \"UsdPerKilo\": 32\n}"
+				},
+				"url": {
+					"raw": "http://sapethapiver01.azurewebsites.net/api/market",
+					"protocol": "http",
+					"host": [
+						"sapethapiver01",
+						"azurewebsites",
+						"net"
+					],
+					"path": [
+						"api",
+						"market"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[Azure] List all current market entries",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://sapethapiver01.azurewebsites.net/api/market",
+					"protocol": "http",
+					"host": [
+						"sapethapiver01",
+						"azurewebsites",
+						"net"
+					],
+					"path": [
+						"api",
+						"market"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}
